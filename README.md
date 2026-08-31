@@ -4,7 +4,7 @@ Nama : Zaki Fatah Alfikri
 
 NIM : H1D024124
 
-Shift Awal & Baru : C & B
+Shift Awal & Baru : I & B
 
 # Screenshot
 
