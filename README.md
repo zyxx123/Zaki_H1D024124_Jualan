@@ -1,8 +1,10 @@
 # Identitas
 
-Nama : Zaki Fatahalfikri
+Nama : Zaki Fatah Alfikri
+
 NIM : H1D024124
-Shift Awal & Baru : F
+
+Shift Awal & Baru : C & B
 
 # Screenshot
 
