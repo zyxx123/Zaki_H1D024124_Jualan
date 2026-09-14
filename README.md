@@ -15,3 +15,7 @@ Shift Awal & Baru : I & B
 ### Display Pertemuan 2
 
 ![Display Pertemuan 2](screenshots/display_pertemuan_2.gif)
+
+### Display Pertemuan 3
+
+![Display Pertemuan 3](screenshots/display_pertemuan_3.gif)
