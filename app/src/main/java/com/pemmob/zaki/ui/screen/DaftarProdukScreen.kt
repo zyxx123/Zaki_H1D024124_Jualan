@@ -1,7 +1,5 @@
 package com.pemmob.zaki.ui.screen
 
-import android.content.res.Configuration
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,7 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,26 +49,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.pemmob.zaki.R
-import com.pemmob.zaki.data.dummy.DummyData
 import com.pemmob.zaki.data.model.Category
 import com.pemmob.zaki.data.model.Product
-import com.pemmob.zaki.ui.theme.Praktikum1Theme
-import kotlinx.coroutines.delay
+import com.pemmob.zaki.ui.viewmodel.ProductUiState
+import com.pemmob.zaki.ui.viewmodel.ProductViewModel
+import com.pemmob.zaki.util.JualanConstants.BASE_URL
 
 @Composable
 fun ProductItemCard(product: Product, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val resId = context.resources.getIdentifier(product.img, "drawable", context.packageName)
-    val imageRes = if (resId != 0) resId else R.mipmap.ic_launcher_foreground
-
     Card(
         modifier = Modifier
             .padding(all = 8.dp)
@@ -80,20 +72,25 @@ fun ProductItemCard(product: Product, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
+            val imageModel: Any = if (product.img == "dummy_product") {
+                R.mipmap.ic_launcher_foreground
+            } else {
+                "${BASE_URL}img/${product.img}"
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
             ) {
-                Image(
-                    painter = painterResource(id = imageRes),
+                AsyncImage(
+                    model = imageModel,
                     contentDescription = product.name,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White),
-                    contentScale = ContentScale.Crop
+                        .clip(shape = RoundedCornerShape(size = 8.dp))
+                        .background(color = Color.White),
+                    contentScale = ContentScale.Fit
                 )
 
                 if (product.category != null) {
@@ -154,47 +151,56 @@ fun CategoryItem(category: Category, isSelected: Boolean, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DaftarProdukScreen(navController: NavController? = null) {
-    var selectedCategoryId by rememberSaveable {
-        mutableStateOf(DummyData.categories.firstOrNull()?.id)
-    }
+fun DaftarProdukScreen(navController: NavController? = null, viewModel: ProductViewModel) {
+    var selectedCategoryId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val uiState by viewModel.uiState.collectAsState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var filteredProducts by remember { mutableStateOf(emptyList<Product>()) }
 
-    LaunchedEffect(key1 = selectedCategoryId, key2 = searchQuery) {
-        isLoading = true
-        delay(1000) // Simulasi loading 1 detik
-
-        val filteredByCategory = if (selectedCategoryId != null) {
-            DummyData.products.filter { it.category_id == selectedCategoryId }
-        } else {
-            DummyData.products
+    when (val state = uiState) {
+        is ProductUiState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
         }
-
-        filteredProducts = if (searchQuery.isBlank()) {
-            filteredByCategory
-        } else {
-            filteredByCategory.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        is ProductUiState.Error -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+            }
         }
-        isLoading = false
+        is ProductUiState.Success -> {
+            if (selectedCategoryId == null && state.categories.isNotEmpty()) {
+                selectedCategoryId = state.categories.first().id
+            }
+
+            val filteredByCategory = if (selectedCategoryId != null) {
+                state.products.filter { it.category_id == selectedCategoryId }
+            } else {
+                state.products
+            }
+
+            val filteredProducts = if (searchQuery.isBlank()) {
+                filteredByCategory
+            } else {
+                filteredByCategory.filter { it.name.contains(other = searchQuery, ignoreCase = true) }
+            }
+
+            StatelessDaftarProduct(
+                categories = state.categories,
+                selectedCategoryId = selectedCategoryId,
+                onCategorySelected = { selectedCategoryId = it },
+                searchQuery = searchQuery,
+                onSearchQueryChange = { searchQuery = it },
+                isLoading = false,
+                products = filteredProducts,
+                onProductClick = { product ->
+                    navController?.navigate(route = "detail/${product.id}")
+                },
+                onContactUsClick = {
+                    navController?.navigate(route = "hubungi_kami")
+                }
+            )
+        }
     }
-
-    StatelessDaftarProduct(
-        categories = DummyData.categories,
-        selectedCategoryId = selectedCategoryId,
-        onCategorySelected = { selectedCategoryId = it },
-        searchQuery = searchQuery,
-        onSearchQueryChange = { searchQuery = it },
-        isLoading = isLoading,
-        products = filteredProducts,
-        onProductClick = { product ->
-            navController?.navigate("detail/${product.id}")
-        },
-        onContactUsClick = {
-            navController?.navigate("hubungi_kami")
-        }
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -337,13 +343,5 @@ fun StatelessDaftarProduct(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewDaftarProdukScreenLight() {
-    Praktikum1Theme(darkTheme = false) {
-        DaftarProdukScreen()
     }
 }
